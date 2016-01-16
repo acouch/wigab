@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import requests
 import xlrd
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 def open_file(url, filename):
     r = requests.get(url)
@@ -10,7 +13,8 @@ def open_file(url, filename):
     xlsfile = xlrd.open_workbook(filename)
     return xlsfile
 
-def get_offices(xlsfile):
+# The title page has titles in varying columns.
+def get_offices(xlsfile,column=1):
     offices = []
     sheet = xlsfile.sheets()[0]
     last = sheet.nrows-1
@@ -19,7 +23,7 @@ def get_offices(xlsfile):
     else:
         rows = range(1,last)
     for i in rows:
-        offices.append(sheet.row_values(i)[1])
+        offices.append(sheet.row_values(i)[column])
     return offices
 
 def detect_headers(sheet):
@@ -41,10 +45,25 @@ def parse_sheet(sheet, office):
     output = []
     combo, start_row = detect_headers(sheet)
     if 'DISTRICT' in office.upper():
-        try:
-            office, district = office.split(' - ')
-        except:
-            office, district = office.split(u' – ')
+        split = office.split('-')
+        if (len(split) == 1):
+          # This '–' is a different character than this '–'
+          office = office.replace('–','-')
+          split = office.split('-')
+        # Office string comes in formats:
+        #  * STATE SENATE - DISTRICT 1 - REPUBLICAN
+        #  * STATE SENATE   DISTRICT 1 - REPUBLICAN
+        if (len(split) == 2):
+            try:
+                office, district = office.split(' - ')
+            except:
+                office, district = office.split(u' – ')
+        # Assumes STATE SENATE - DISTRICT 1 - REPUBLICAN format
+        else:
+          try:
+              office, party, district = office.split(' - ')
+          except:
+              office, party, district = office.split(u' – ')
         district = district.replace('DISTRICT ','')
     else:
         district = None
@@ -54,12 +73,16 @@ def parse_sheet(sheet, office):
             continue
         if results[0].strip() != '':
             county = results[0].strip()
+        else:
+          county = county
         ward = results[1].strip()
-        total_votes = int(results[2])
+        total_votes = int(results[2]) if results[2] else results[2]
         candidate_votes = results[3:]
         for candidate, party in combo:
             index = [x[0] for x in combo].index(candidate)
-            if candidate.strip() == '':
+            if candidate == None:
+                continue
+            elif candidate.strip() == '':
                 continue
             else:
                 output.append([county, ward, office, district, total_votes, party, candidate, candidate_votes[index]])
