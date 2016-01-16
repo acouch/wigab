@@ -67,6 +67,7 @@ def parse_sheet(sheet, office):
         district = district.replace('DISTRICT ','')
     else:
         district = None
+    county = ''
     for i in range(start_row, sheet.nrows):
         results = sheet.row_values(i)
         if "Totals" in results[1]:
@@ -95,7 +96,6 @@ def process_all(url, filename):
     for office in offices:
         index = [x for x in offices].index(office)
         sheet = xlsfile.sheets()[index+1]
-        print "parsing %s" % office
         results.append(parse_sheet(sheet, office))
 
     return [r for result in results for r in result]
